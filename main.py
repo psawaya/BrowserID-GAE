@@ -36,7 +36,7 @@ class BrowserIDHandler(webapp.RequestHandler):
             }))
         data = {
             "assertion" : self.request.get('assertion'),
-            "audience" : "localhost"
+            "audience" : urllib2.Request(self.request.url).get_host()
         }
         req = urllib2.Request('https://browserid.org/verify',urllib.urlencode(data))        
         json_result = urllib2.urlopen(req).read()
@@ -53,8 +53,10 @@ class HomeHandler(webapp.RequestHandler):
     def get(self):
         session = gaesessions.get_current_session()
         if session.is_active():
-            thisUser = UserObj.get_by_key_name(session['email'])
-            if thisUser is None:
+            sessionEmail = session.get('email')
+            if sessionEmail:
+                thisUser = UserObj.get_by_key_name(sessionEmail)
+            if thisUser is None or sessionEmail is None:
                 # If the user's session doesn't correspond to an e-mail in the database,
                 # it's bad and needs to be terminated.
                 session.terminate()
