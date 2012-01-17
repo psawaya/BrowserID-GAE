@@ -1,41 +1,82 @@
 #!/usr/bin/env python
-#
-# Copyright 2007 Google Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-from google.appengine.ext import webapp
+
+import gaesessions
+
+from google.appengine.ext import db,webapp
 from google.appengine.ext.webapp import template,util
+
+try:
+    import json
+except ImportError:
+    from django.utils import simplejson as json
+
+import logging
 
 import urllib2,urllib
 
+from uuid import uuid4
+
+class UserObj(db.Model):
+    email = db.StringProperty()
+    hampshireStudent = db.BooleanProperty()
+
 class MainHandler(webapp.RequestHandler):
     def get(self):
+        if gaesessions.get_current_session().is_active():
+            # User is already logged in, don't bother showing login page.
+            return self.redirect('/home')
         self.response.out.write(template.render('templates/login.html',dict()))
 
 class BrowserIDHandler(webapp.RequestHandler):
     def post(self):
+        session = gaesessions.get_current_session()
+        if session.is_active():
+            return self.response.out.write(json.dumps({
+                'error' : 'Already logged in!'
+            }))
         data = {
             "assertion" : self.request.get('assertion'),
             "audience" : "localhost"
         }
         req = urllib2.Request('https://browserid.org/verify',urllib.urlencode(data))        
-        html = urllib2.urlopen(req).read()
-        self.response.out.write(html)
+        json_result = urllib2.urlopen(req).read()
+        
+        # Parse the JSON to extract the e-mail
+        result = json.loads(json_result)
+        userEmail = result.get('email')
+        UserObj.get_or_insert(userEmail, email = userEmail, hampshireStudent = userEmail.endswith('hampshire.edu'))
+        session['email'] = userEmail
+        
+        self.response.out.write(json_result)
+
+class HomeHandler(webapp.RequestHandler):
+    def get(self):
+        session = gaesessions.get_current_session()
+        if session.is_active():
+            thisUser = UserObj.get_by_key_name(session['email'])
+            if thisUser is None:
+                # If the user's session doesn't correspond to an e-mail in the database,
+                # it's bad and needs to be terminated.
+                session.terminate()
+                return self.response.out.write("Invalid cookie!")
+            else:
+                return self.response.out.write(template.render('templates/home.html',{ 'user' : thisUser}))
+        else:
+            # User doesn't have a session/is expired, have them sign in again
+            self.redirect('/')
+ 
+class LogoutHandler(webapp.RequestHandler):
+    def get(self):
+        session = gaesessions.get_current_session()
+        if session.is_active():
+            session.terminate()
+        self.redirect('/')
 
 def main():
     application = webapp.WSGIApplication([('/', MainHandler),
-                                        ('/login', BrowserIDHandler)],
+                                        ('/login', BrowserIDHandler),
+                                        ('/home', HomeHandler),
+                                        ('/logout', LogoutHandler)],
                                          debug=True)
     util.run_wsgi_app(application)
 
