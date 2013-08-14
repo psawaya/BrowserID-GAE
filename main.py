@@ -10,11 +10,8 @@ try:
 except ImportError:
     from django.utils import simplejson as json
 
-import logging
-
 import urllib2,urllib
 
-from uuid import uuid4
 
 class UserObj(db.Model):
     email = db.StringProperty()
