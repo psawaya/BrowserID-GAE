@@ -10,11 +10,8 @@ try:
 except ImportError:
     from django.utils import simplejson as json
 
-import logging
-
 import urllib2,urllib
 
-from uuid import uuid4
 
 class UserObj(db.Model):
     email = db.StringProperty()
@@ -38,7 +35,7 @@ class BrowserIDHandler(webapp.RequestHandler):
             "assertion" : self.request.get('assertion'),
             "audience" : urllib2.Request(self.request.url).get_host()
         }
-        req = urllib2.Request('https://browserid.org/verify',urllib.urlencode(data))        
+        req = urllib2.Request('https://verifier.login.persona.org/verify',urllib.urlencode(data))        
         json_result = urllib2.urlopen(req).read()
         
         # Parse the JSON to extract the e-mail

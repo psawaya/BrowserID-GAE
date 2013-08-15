@@ -1,7 +1,7 @@
 BrowserID on App Engine 
 -----------------------
 
-This is a very simple example of how to get up and running with [BrowserID](http://browserid.org) on [Google App Engine](http://code.google.com/appengine/).
+This is a very simple example of how to get up and running with [BrowserID](http://persona.org) on [Google App Engine](http://code.google.com/appengine/).
 
 It stores a user's login in a session, via [gaesessions](https://github.com/dound/gae-sessions).
 
